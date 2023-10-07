@@ -1,43 +1,49 @@
-# Floretion Base Vector
+# Floretions: A Playground for Algebra and Geometry
 
 ## Introduction
 
-This repository contains Python implementations of Floretion base vectors, a formal definition can be found at [OEIS](https://oeis.org/search?q=a308496). Floretions are numbers written in base 8 with digits 1,2,4,7. They form a mathematical structure that can be manipulated and studied much like more common algebraic structures.
+This repository serves as a playground for exploring the algebraic structure of Floretions—a unique number system with roots in base-8 digits 1,2,4,7. A formal definition is given in [OEIS](https://oeis.org/search?q=a308496).  "Linking Quaternions and the Sierpinski Gasket via Floretions: Equilateral Triangle Tiling and Multiplication Invariance." is one area of current research. 
 
-## How it Works
+## Content Overview
 
-### The Base Vector Class
+- `floretion.py`: Implements the `Floretion` class to perform fundamental operations like creation and multiplication.
+- `SierpinskiFlo.py`: An example application that leverages Floretions to generate and display Sierpinski Gasket fractals.
+- `data/`: Directory containing CSV files for various uses, including storing calculated data and parameters for fractal generation.
 
-The `floretion_base_vector` class defines a Floretion base vector and provides methods for its manipulation.
+## Classes
+
+### Floretion
 
 #### Attributes
 
-- `value`: Integer
-  - The decimal representation of the Floretion base vector.
-- `order`: Integer
-  - The order of the Floretion base vector, determined by its length in octal representation.
+- `base_vectors`: List of Floretion base vectors.
+- `coefficients`: List of coefficients for the Floretion object.
 
 #### Methods
 
-- `__init__(self, x)`: Initializes a new `floretion_base_vector` object.
-- `determine_order(self)`: Determines the order of the Floretion base vector.
-- `as_octal(self)`: Returns the octal representation of the Floretion base vector.
-- `as_decimal(self)`: Returns the decimal representation of the Floretion base vector.
-- `as_binary(self)`: Returns the binary representation of the Floretion base vector.
-- `as_floretion_notation(self)`: Returns the floretion notation, a human-readable form.
-- `get_order(self)`: Returns the order of the Floretion base vector.
-- `__mul__(self, other)`: Multiplies two `floretion_base_vector` objects.
+- `__init__(self, base_vectors, coefficients)`: Initializes a new `Floretion` object.
+- `__mul__(self, other)`: Multiplies two `Floretion` objects.
+- `__add__(self, other)`: Adds two `Floretion` objects.
 
-### Static Methods
+### SierpinskiFlo
 
-- `mult_flo(a_base_val, b_base_val, flo_order)`: Computes the product of two Floretion base vectors given their base values and order.
+#### Methods
+
+- `generate_fractal()`: Generates a Sierpinski Gasket using Floretions.
+- `display_fractal()`: Displays the generated Sierpinski Gasket.
 
 ## Example Usage
 
 ```python
-flo1 = floretion_base_vector(-84095)
-print("-84095 in floretion notation:", flo1.as_floretion_notation())
+from floretion import Floretion
 
-flo2 = floretion_base_vector(145)
-flo3 = floretion_base_vector(143)
-print("flo2*flo3 in floretion notation:", (flo2 * flo3).as_floretion_notation())
+f1 = Floretion([...], [...])
+f2 = Floretion([...], [...])
+result = f1 * f2
+print(result)
+
+from SierpinskiFlo import SierpinskiFlo
+
+s = SierpinskiFlo()
+s.generate_fractal()
+s.display_fractal()
