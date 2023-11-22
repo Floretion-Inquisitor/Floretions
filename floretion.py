@@ -1,3 +1,25 @@
+# MIT License
+
+# Copyright (c) [2023 [Creighton Dement]
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 import numpy as np
 import pandas as pd
 import cv2
@@ -63,7 +85,9 @@ class Floretion:
         self.flo_order = self.find_flo_order(temp_base_vec_dec, self.max_order)
 
         # Load the complete listing of base vectors
-        file_path = f"./data/grid.flo_{self.flo_order}.oct.csv"
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        file_path = os.path.join(base_dir, 'Floretion/data', f"grid.flo_{self.flo_order}.oct.csv")
+
         if grid_flo_loaded_data is None:
             self.grid_flo_loaded_data = pd.read_csv(file_path, dtype={'oct': str})
         else:
@@ -236,6 +260,22 @@ class Floretion:
         new_coeffs = self.coeff_vec_all - other.coeff_vec_all
         return Floretion(new_coeffs, self.base_vec_dec_all, self.grid_flo_loaded_data)
 
+    def __eq__(self, other):
+        """
+        Check if this floretion is equal to another floretion.
+
+        Parameters:
+            other (Floretion): The floretion to compare with.
+
+        Returns:
+            bool: True if the floretions are equal, False otherwise.
+        """
+        if not isinstance(other, Floretion):
+            # The other object is not a Floretion, so they can't be equal
+            return False
+
+        return np.array_equal(self.coeff_vec_all, other.coeff_vec_all)
+
     # First declare mult_flo_base_absolute_value
     @staticmethod
     def mult_flo_base_absolute_value(a_base_val, b_base_val, flo_order):
@@ -251,14 +291,9 @@ class Floretion:
             An integer representing the absolute value of the floretion product.
         """
         bitmask = int(2 ** (3 * flo_order) - 1)
-        oct666 = int('6' * flo_order, 8)
-        oct111 = int('1' * flo_order, 8)
-
         a_base_val = abs(a_base_val)
         b_base_val = abs(b_base_val)
 
-        # Shift every 3-bits of "a" one to the left
-        a_cyc = ((a_base_val << 1) & oct666) | ((a_base_val >> 2) & oct111)
 
         return bitmask & (~(a_base_val ^ b_base_val))
 
@@ -434,7 +469,7 @@ class Floretion:
             elif coeff == -1:
                 coeff_str = "-"
             else:
-                coeff_str = f"{coeff:+.1f}"
+                coeff_str = f"{coeff:+.4f}"
 
             # Convert base-8 digits back to floretion symbols
             base_vec_str = ""
@@ -457,7 +492,10 @@ class Floretion:
             if coeff != 0:
                 floretion_terms.append(term.strip())
 
-        return " ".join(floretion_terms).replace(" + -", " - ").replace(" + +", " + ")
+        result_string = " ".join(floretion_terms).replace(" + -", " - ").replace(" + +", " + ")
+        if result_string == "":
+            result_string = " _0_"
+        return result_string
 
     @staticmethod
     def flo_oct_to_grid(base_dec):
@@ -491,6 +529,27 @@ class Floretion:
         x_coord = int(x_coord)
         y_coord = int(y_coord)
         return np.array([x_coord, y_coord])
+
+    @staticmethod
+    def normalize_coeffs(floretion, max_abs_value=2.0):
+        """
+        Normalize the coefficients of a given Floretion instance and return a new instance.
+
+        Args:
+            floretion (Floretion): The Floretion instance to normalize.
+            max_abs_value (float): The desired maximum absolute value of the coefficients.
+
+        Returns:
+            Floretion: New Floretion instance with normalized coefficients.
+        """
+        max_coeff = np.max(np.abs(floretion.coeff_vec_all))
+        if max_coeff != 0:  # Avoid division by zero
+            normalized_coeff_vec_all = max_abs_value * floretion.coeff_vec_all / max_coeff
+        else:
+            normalized_coeff_vec_all = floretion.coeff_vec_all
+
+        # Create a new Floretion instance with normalized coefficients
+        return Floretion(normalized_coeff_vec_all, floretion.base_vec_dec_all, floretion.grid_flo_loaded_data)
 
     def sum_of_squares(self):
         return sum(coeff ** 2 for coeff in self.coeff_vec_all)
@@ -646,8 +705,40 @@ class Floretion:
         coords = np.array([[i, j] for i in range(len(grid)) for j in range(len(grid[0])) if grid[i][j] == 1])
         return coords
 
-    import os
-    import pandas as pd
+
+
+    def inverse(self):
+        # Check if flo is a single base floretion (positive or negative)
+        non_zero_elements = [coeff for coeff in self.coeff_vec_all if coeff != 0]
+        if len(non_zero_elements) == 1 and abs(non_zero_elements[0]) == 1:
+            # flo is a base floretion
+            if self * self == Floretion.from_string("e"):
+                return self  # Inverse is the floretion itself
+            else:
+                return -1*self  # Inverse is the negative of the floretion
+        else:
+            raise ValueError("Provided floretion is not a base floretion.")
+
+    def find_center(self):
+        """
+        Find all base vectors that commute with this floretion.
+
+        Returns:
+            A list of base vectors that commute with this floretion.
+        """
+        commuting_base_vectors = []
+
+
+        for base_vec in self.base_vec_dec_all:
+            # Initialize the base vector as a Floretion object
+            base_floretion = Floretion([1], [base_vec], format_type="dec")
+
+            # Check if the base vector commutes with this floretion
+            if self * base_floretion == base_floretion * self:
+                commuting_base_vectors.append(base_vec)
+
+        return commuting_base_vectors
+
 
     def conway(self, n):
         # Create a directory to store the CSV files if it doesn't exist
@@ -735,22 +826,34 @@ if __name__ == "__main__":
     # print((flo_y).as_floretion_notation())
 
     flo_x = Floretion.from_string("ii +jj + ek")
-    flo_y = Floretion.from_string("ki + kj + ij + ji")
+    flo_y = Floretion.from_string("ie")
+
+
+    commutes_ie = np.array([9, 10, 12, 15, 57, 58, 60, 63])
+    flo_commutes_ie = Floretion(np.ones(commutes_ie.size), commutes_ie ,  format_type="dec")
+    print(f"flo_commutes_ie {flo_commutes_ie.as_floretion_notation()}")
+
+
+    print(flo_y.find_center())
 
     flo_z = flo_x * flo_y
-    print(f"flo_z {flo_z.as_floretion_notation()}")
+    #print(f"flo_z {flo_z.as_floretion_notation()}")
+
+    flo_x = Floretion.from_string("ii")
+    flo_x_inv =  flo_x.inverse()
+    print(f"flo_x {flo_x.as_floretion_notation()} flo_x_inv {flo_x_inv.as_floretion_notation()}")
 
     flo_x = Floretion.from_string(".5iii +.5jjj + .5kkk")
     flo_y = Floretion.from_string("iij +  iik + jji +jjk + kki + kkj")
 
     flo_z = flo_x * flo_y
-    print(f"flo_z {flo_z.as_floretion_notation()}")
+    #print(f"flo_z {flo_z.as_floretion_notation()}")
 
     flo_x = Floretion.from_string("ijk + iji + iii")
     flo_y = Floretion.from_string("iik")
 
-    flo_z = flo_x * flo_y
-    print(f"flo_z {flo_z.as_floretion_notation()}")
+    #flo_z = flo_x * flo_y
+    #print(f"flo_z {flo_z.as_floretion_notation()}")
 
     coeffs = [1]
 
