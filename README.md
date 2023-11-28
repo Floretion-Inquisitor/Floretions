@@ -32,18 +32,15 @@ Represents a Floretion, a type of hypercomplex number that extends the concept o
 - Arithmetic operations: `__pow__`, `__add__`, `__sub__`, `__eq__`, `__mul__`, `__rmul__`.
 - `mult_flo_base_absolute_value`, `mult_flo_sign_only`: Methods for multiplying floretion base vectors.
 - `compute_possible_vecs`: Computes possible vectors.
-- `mul_sp`: Multiplication method specifics not provided in the snippet.
 - `as_floretion_notation`: Converts to floretion notation.
 - `flo_oct_to_grid`, `grid_to_flo_oct`: Conversion between floretion octal representation and grid format.
 - `normalize_coeffs`: Normalizes coefficients.
 - `sum_of_squares`, `abs`: Calculates sum of squares and absolute value.
 - `from_string`: Creates a Floretion from a string representation.
 - `display_as_grid`: Displays the Floretion as a grid.
-- `next_step`, `neighbors`: Functionality details not provided in the snippet.
 - `grid_to_coordinates`: Converts grid format to coordinates.
-- `inverse`: Calculates the inverse of a Floretion.
 - `find_center`: Finds the center of a Floretion.
-- `conway`: Functionality details not provided in the snippet.
+
 
 ## Example Usage
 
