@@ -26,7 +26,6 @@ import cv2
 import os
 import re
 
-from floboard import floboard
 import floretion_base_vector
 
 
@@ -633,16 +632,6 @@ class Floretion:
 
         return result
 
-    def display_as_grid2(self):
-        board_size = 2 ** self.flo_order
-        chessboard = floboard(board_size)
-        for base_dec, value in self.base_to_nonzero_coeff.items():
-            # print(f"{base_dec}{base_dec}, {value}{value}")
-            coords = self.flo_oct_to_grid(base_dec)
-            print(f"display_as_grid coords: ({coords[0]}, {coords[1]})")
-            chessboard.update_square(coords[1], coords[0], value)
-            # chessboard.update_square(2, 0, 1)
-        chessboard.display()
 
     def display_as_grid(self, resize_size=(512, 512)):
         board_size = 2 ** self.flo_order
