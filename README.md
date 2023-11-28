@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This repository serves as a playground for exploring the algebraic structure of Floretions—a unique number system with roots in base-8 digits 1,2,4,7. A formal definition is given in [OEIS](https://oeis.org/search?q=a308496).  "Linking Quaternions and the Sierpinski Gasket via Floretions: Equilateral Triangle Tiling and Multiplication Invariance." is one area of current research. 
+This repository serves as a playground for exploring the algebraic structure of Floretions—a unique number system with roots in base-8 digits 1,2,4,7. A formal definition along with a link to current draft paper "Floretions and Actions of D3" is given here [OEIS](https://oeis.org/search?q=a308496).  
 
 ## Content Overview
 
@@ -48,7 +48,7 @@ Represents a Floretion, a type of hypercomplex number that extends the concept o
 ## Example Usage
 
     flo_x = Floretion.from_string(".5iii +.5jjj + .5kkk")
-    flo_y = Floretion.from_string("iij +  iik + jji +jjk + kki + kkj")
+    flo_y = Floretion.from_string("iij + iik + jji +jjk + kki + kkj")
 
-    flo_z = flo_x * flo_y
-    #print(f"flo_z {flo_z.as_floretion_notation()}")
+    flo_z = flo_x * flo_y - flo_y * flo_x
+    print(f"flo_z {flo_z.as_floretion_notation()}")
