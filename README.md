@@ -8,7 +8,7 @@ This repository serves as a playground for exploring the algebraic structure of 
 
 - `floretion.py`: Implements the `Floretion` class to perform fundamental operations like creation and multiplication.
 - `SierpinskiFlo.py`: An example application that leverages Floretions to generate and display Sierpinski Gasket fractals.
-- `data/`: Directory containing CSV files for various uses, including storing calculated data and parameters for fractal generation.
+- `data/`: Directory containing CSV files to directly import base vectors of order 9 and less (as opposed to calculating these "on the fly", which could take a lot of time). 
 
 ## Classes
 
