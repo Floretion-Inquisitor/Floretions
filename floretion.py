@@ -807,6 +807,31 @@ class Floretion:
 
         return commuting_base_vectors
 
+    def find_center_base_vectors_only(self):
+        """
+        Find all base vectors whose product with this floretion (considered as a base vector)
+        has the same sign as the product in the reverse order.
+
+        Returns:
+            A list of base vectors that commute with this floretion as a base vector.
+        """
+        commuting_base_vectors = []
+
+        # Assuming 'self' is a base vector, represented by a single nonzero coefficient
+        if len(self.base_to_nonzero_coeff) != 1:
+            raise ValueError("The floretion must be a single base vector")
+
+        # Get the base vector and its order
+        base_vec_self, _ = next(iter(self.base_to_nonzero_coeff.items()))
+        flo_order = self.flo_order
+
+        for base_vec in self.base_vec_dec_all:
+            # Check if the signs of the products are the same
+            if Floretion.mult_flo_sign_only(base_vec_self, base_vec, flo_order) == Floretion.mult_flo_sign_only(
+                    base_vec, base_vec_self, flo_order):
+                commuting_base_vectors.append(base_vec)
+
+        return commuting_base_vectors
 
     def conway(self, n):
         # Create a directory to store the CSV files if it doesn't exist
