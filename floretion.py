@@ -85,7 +85,7 @@ class Floretion:
 
         # Load the complete listing of base vectors
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        file_path = os.path.join(base_dir, 'Floretion/data', f"grid.flo_{self.flo_order}.oct.csv")
+        file_path = os.path.join(base_dir, 'floretions/data', f"grid.flo_{self.flo_order}.oct.csv")
 
         if grid_flo_loaded_data is None:
             self.grid_flo_loaded_data = pd.read_csv(file_path, dtype={'oct': str})
@@ -94,6 +94,8 @@ class Floretion:
 
         self.base_vec_dec_all = self.grid_flo_loaded_data['floretion'].to_numpy()
         self.coeff_vec_all = np.zeros_like(self.base_vec_dec_all, dtype=float)
+        self.coeff_vec_pos = np.zeros_like(self.base_vec_dec_all, dtype=float)
+        self.coeff_vec_neg = np.zeros_like(self.base_vec_dec_all, dtype=float)
 
         # Populate coefficient array based on provided coeffs and base_vecs
         for coeff, base_vec in zip(temp_coeff_vec, temp_base_vec_dec):
@@ -529,6 +531,40 @@ class Floretion:
         y_coord = int(y_coord)
         return np.array([x_coord, y_coord])
 
+    def tes(self):
+        return self.coeff_vec_all[-1]
+
+    def distribute_coeffs(self):
+        """
+        Distributes coefficients to adjacent base vectors in a wave-like pattern.
+        option: A string indicating the direction of distribution ('forward', 'backward', 'both').
+
+        Returns:
+        Modified numpy array of coefficients.
+        """
+        org_coeffs = self.coeff_vec_all.copy()
+        #result_coeffs = np.zeros(floretion.coeff_vec_all.size)
+
+        num_base_vecs = org_coeffs.size
+
+        for i in range(num_base_vecs):
+            # Determine indices for forward and backward distribution
+            forward_idx = i + 1 if i < num_base_vecs - 1 else None
+            backward_idx = i - 1 if i > 0 else None
+           # if org_coeffs [i] > 0:
+            #    add_coeffs[forward_idx] += org_coeffs[i] / 2
+
+            #if org_coeffs [i] > 0:
+            #    add_coeffs[forward_idx] += add_coeffs[forward_idx] / 2
+
+            #else:
+            #    add_coeffs[backward_idx] -= add_coeffs[backward_idx] / 2
+
+        #org_coeffs /= 2
+        #modified_coeffs = org_coeffs + add_coeffs
+
+        #return Floretion(modified_coeffs, floretion.base_vec_dec_all, floretion.grid_flo_loaded_data)
+
     @staticmethod
     def normalize_coeffs(floretion, max_abs_value=2.0):
         """
@@ -549,6 +585,49 @@ class Floretion:
 
         # Create a new Floretion instance with normalized coefficients
         return Floretion(normalized_coeff_vec_all, floretion.base_vec_dec_all, floretion.grid_flo_loaded_data)
+
+
+    @staticmethod
+    def mirror(floretion, axis):
+        """
+        Mirror the Floretion instance across the specified axis.
+
+        Args:
+            floretion (Floretion): The Floretion instance to mirror.
+            axis (str): The axis to mirror across ('I', 'J', or 'K').
+
+        Returns:
+            Floretion: New Floretion instance mirrored across the specified axis.
+
+        Raises:
+            ValueError: If the axis is not 'I', 'J', or 'K'.
+        """
+        if axis not in ["I", "J", "K"]:
+            raise ValueError("Axis must be 'I', 'J', or 'K'.")
+
+        new_coeffs = np.zeros_like(floretion.coeff_vec_all)
+        for coeff, base_vec in zip(floretion.coeff_vec_all, floretion.base_vec_dec_all):
+            # Convert base_vec to octal and perform digit swaps based on the axis
+            octal_str = format(base_vec, 'o')
+            if axis == "I":
+                octal_str = octal_str.replace('2', 'x').replace('4', '2').replace('x', '4')
+            elif axis == "J":
+                octal_str = octal_str.replace('1', 'x').replace('4', '1').replace('x', '4')
+            elif axis == "K":
+                octal_str = octal_str.replace('1', 'x').replace('2', '1').replace('x', '2')
+
+            # Convert back to decimal
+            new_base_vec = int(octal_str, 8)
+            # Find the index of the new base vector
+            idx = np.where(floretion.base_vec_dec_all == new_base_vec)[0]
+            # Set the corresponding coefficient
+            if idx.size > 0:
+                new_coeffs[idx[0]] = coeff
+
+
+        # Create a new Floretion instance with the new coefficients
+        return Floretion(new_coeffs, floretion.base_vec_dec_all, floretion.grid_flo_loaded_data)
+
 
     def sum_of_squares(self):
         return sum(coeff ** 2 for coeff in self.coeff_vec_all)
