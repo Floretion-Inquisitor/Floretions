@@ -25,6 +25,7 @@ import pandas as pd
 import cv2
 import os
 import re
+import json
 
 import floretion_base_vector
 
@@ -37,6 +38,7 @@ def sgn(x):
     return -1 if x < 0 else 1
 
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 class Floretion:
     """
     Represents a Floretion, which is a type of hypercomplex number that extends the idea of quaternions.
@@ -66,17 +68,36 @@ class Floretion:
         temp_base_vec_dec = np.array(base_vecs).astype(int)
 
         # Convert and store appropriate representations
-        for i in range(len(base_vecs)):
-            if base_vecs[i] < 0:
-                coeffs_of_base_vecs[i] *= -1
-                base_vecs[i] = abs(base_vecs[i])
-
-            if format_type == "oct":
+        if format_type == "oct":
+            for i in range(len(base_vecs)):
                 temp_base_vec_dec[i] = int(str(base_vecs[i]), 8)
 
-        self.base_to_nonzero_coeff = {temp_base_vec_dec[i]: coeffs_of_base_vecs[i] for i in
-                                      range(len(temp_base_vec_dec)) if
-                                      abs(coeffs_of_base_vecs[i]) > np.finfo(float).eps}
+        #for i in range(len(base_vecs)):
+        #    if base_vecs[i] < 0:
+        #        coeffs_of_base_vecs[i] *= -1
+        #        base_vecs[i] = abs(base_vecs[i])
+
+        #    if format_type == "oct":
+        #        temp_base_vec_dec[i] = int(str(base_vecs[i]), 8)
+
+        if len(coeffs_of_base_vecs) == 1:
+            # Extract the single coefficient
+            single_coeff = coeffs_of_base_vecs[0]
+
+            # Scenario 1: temp_base_vec_dec contains exactly one base vector
+            if base_vecs and len(base_vecs) == 1:
+                single_base_vec = base_vecs[0]
+                self.base_to_nonzero_coeff = {single_base_vec: single_coeff}
+            # Scenario 2: Assuming temp_base_vec_dec should contain all base vectors
+            # and is equivalent to saying the Floretion is fully populated with this single coefficient
+            else:
+                self.base_to_nonzero_coeff = dict.fromkeys(self.base_vec_dec_all, single_coeff)
+        else:
+            # for multiple coefficients
+            self.base_to_nonzero_coeff = {temp_base_vec_dec[i]: coeffs_of_base_vecs[i] for i in
+                                          range(len(temp_base_vec_dec)) if
+                                          abs(coeffs_of_base_vecs[i]) > np.finfo(float).eps}
+
 
         self.format_type = format_type
 
@@ -84,8 +105,8 @@ class Floretion:
         self.flo_order = self.find_flo_order(temp_base_vec_dec, self.max_order)
 
         # Load the complete listing of base vectors
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        file_path = os.path.join(base_dir, 'floretions/data', f"grid.flo_{self.flo_order}.oct.csv")
+
+        file_path = os.path.join(BASE_DIR, 'floretions/data', f"grid.flo_{self.flo_order}.oct.csv")
 
         if grid_flo_loaded_data is None:
             self.grid_flo_loaded_data = pd.read_csv(file_path, dtype={'oct': str})
@@ -94,15 +115,17 @@ class Floretion:
 
         self.base_vec_dec_all = self.grid_flo_loaded_data['floretion'].to_numpy()
         self.coeff_vec_all = np.zeros_like(self.base_vec_dec_all, dtype=float)
-        self.coeff_vec_pos = np.zeros_like(self.base_vec_dec_all, dtype=float)
-        self.coeff_vec_neg = np.zeros_like(self.base_vec_dec_all, dtype=float)
+        #self.coeff_vec_pos = np.zeros_like(self.base_vec_dec_all, dtype=float)
+        #self.coeff_vec_neg = np.zeros_like(self.base_vec_dec_all, dtype=float)
 
+ #"https://chat.openai.com/g/g-fzeqLUKxk-flogpt/c/5460f906-b778-463b-a196-6cfdba9d8bd4"
         # Populate coefficient array based on provided coeffs and base_vecs
         for coeff, base_vec in zip(temp_coeff_vec, temp_base_vec_dec):
             idx = np.where(self.base_vec_dec_all == base_vec)[0]
             self.coeff_vec_all[idx] = coeff
 
         self.base_to_grid_index = {}
+
         for base_vec, _ in self.base_to_nonzero_coeff.items():
             index_row = self.grid_flo_loaded_data[self.grid_flo_loaded_data['floretion'] == base_vec].index[0]
             self.base_to_grid_index[base_vec] = index_row
@@ -142,71 +165,6 @@ class Floretion:
 
         return instance
 
-    @classmethod
-    def from_cartesian_coords(cls, coeffs, coords, flo_order=-1):
-        """
-           Creates a Floretion object from cartesian coordinates.
-
-           Parameters
-           ----------
-           coeffs : list
-               List of coefficients.
-           coords : list of tuple
-               List of tuples representing cartesian coordinates.
-           flo_order : int, optional
-               The order of the floretion. Defaults to -1, which means the method will try to determine it.
-
-           Returns
-           -------
-           Floretion
-               A Floretion object.
-           """
-        if len(coeffs) != len(coords):
-            raise ValueError("The number of coefficients must match the number of coordinates.")
-
-        max_coord_value = int(np.sqrt(4 ** flo_order) - 1)
-
-        if flo_order == -1:
-            max_coord_value = np.max(np.array(coords))
-            flo_order = 0
-            while True:
-                if max_coord_value < np.sqrt(4 ** flo_order) - 1:
-                    break
-                flo_order += 1
-
-        for x, y in coords:
-            if x > max_coord_value or y > max_coord_value:
-                raise ValueError(
-                    f"Coordinates x={x} and y={y} exceed the maximum allowable value of {max_coord_value} for flo_order {flo_order}.")
-
-        instance = cls.__new__(cls)
-        instance.flo_order = flo_order
-
-        # Load the data from a file path generated internally
-        file_path = f"./data/grid.flo_{flo_order}.oct.csv"
-        instance.grid_flo_loaded_data = pd.read_csv(file_path, dtype={'oct': str})
-
-        instance.base_vec_dec_all = instance.grid_flo_loaded_data['floretion'].to_numpy()
-        instance.coeff_vec_all = np.zeros_like(instance.base_vec_dec_all, dtype=float)
-
-        # Initialize base_to_nonzero_coeff and base_to_grid_index as empty dictionaries
-        instance.base_to_nonzero_coeff = {}
-        instance.base_to_grid_index = {}
-
-        for coeff, (x, y) in zip(coeffs, coords):
-            index_row = instance.grid_flo_loaded_data[
-                (instance.grid_flo_loaded_data['x_coord'] == x) & (
-                        instance.grid_flo_loaded_data['y_coord'] == y)].index.values[0]
-            floretion_val = instance.grid_flo_loaded_data.at[index_row, 'floretion']
-
-            # Update coefficient vector and base_to_nonzero_coeff
-            instance.coeff_vec_all[index_row] = coeff
-            instance.base_to_nonzero_coeff[floretion_val] = coeff
-
-            # Update base_to_grid_index
-            instance.base_to_grid_index[floretion_val] = index_row
-
-        return instance
 
     def find_flo_order(self, temp_base_vec_dec, max_order):
         """
@@ -355,6 +313,60 @@ class Floretion:
 
         return possible_vecs
 
+    @staticmethod
+    def write_centers_to_file(flo_order, decomposition_type="pos"):
+
+        dummy_flo = Floretion.from_string(f'0{"e" * flo_order}')
+        base_vec_all = (dummy_flo.base_vec_dec_all)
+        result = {}
+
+        for base_vec in base_vec_all:
+
+            this_flo = Floretion(np.array([1]), np.array([base_vec]))
+            center = np.array(sorted(list(this_flo.find_center_base_vectors_only(decomposition_type))))
+            result[base_vec] = center
+
+
+        result_str_keys = {str(key): value.tolist() for key, value in result.items()}
+
+        # Manually construct the JSON string
+        json_lines = ["{"]
+        last_key = list(result_str_keys.keys())[-1]
+        for key, value in result_str_keys.items():
+            # Convert each key-value pair to a JSON string
+            json_pair = json.dumps({key: value})
+            json_pair = json_pair.strip("{}")
+
+            # Add a comma after each pair except the last one
+            if key != last_key:
+                json_pair += ","
+
+            json_lines.append("    " + json_pair)
+        json_lines.append("}")
+
+        json_string = "\n".join(json_lines)
+
+        # Write the formatted JSON string to a file
+        with open(f'center_data_order_{flo_order}.{decomposition_type}.json', 'w') as file:
+            file.write(json_string + "\n")  # Ensure there's a newline at the end of the file
+
+
+        # Save to JSON file
+        #with open(f'center_data_order_{flo_order}.json', 'w') as file:
+        #    json.dump(json_string, file, separators="\n")
+        #return result
+
+    @staticmethod
+    def load_centers(flo_order, decomposition_type="pos"):
+
+        centers_file_path = os.path.join(BASE_DIR, 'floretions/data/centers', f'center_data_order_{flo_order}.{decomposition_type}.json')
+
+        # Load center data
+        with open(centers_file_path, 'r') as file:
+            center_data = json.load(file)
+
+        return center_data
+
     def __mul__(self, other):
         """
         Overloads the multiplication (*) operator for Floretion instances.
@@ -498,72 +510,11 @@ class Floretion:
             result_string = " _0_"
         return result_string
 
-    @staticmethod
-    def flo_oct_to_grid(base_dec):
-        flo_octal = oct(base_dec)[2:]
-        # print(f"{flo_octal}{flo_octal}")
-        x_coord = 0
-        y_coord = 0
-
-        flo_order = len(flo_octal)
-        num_rows_or_num_cols_in_grid = 2 ** flo_order
-        shift_amount = num_rows_or_num_cols_in_grid / 2
-
-        for i, digit in enumerate(flo_octal):
-            digit = int(digit)  # Converti il carattere in un intero
-            # print(f"{digit}")
-
-            if digit == 1:
-                pass
-            elif digit == 2:
-                y_coord += shift_amount
-            elif digit == 4:
-                x_coord += shift_amount
-                y_coord += shift_amount
-            elif digit == 7:
-                x_coord += shift_amount
-
-            # print(
-            #    f"flo_order {flo_order}, digit {digit}, shift_amount {shift_amount}, x_coord {x_coord}, y_coord {y_coord}")
-            shift_amount /= 2
-
-        x_coord = int(x_coord)
-        y_coord = int(y_coord)
-        return np.array([x_coord, y_coord])
 
     def tes(self):
         return self.coeff_vec_all[-1]
 
-    def distribute_coeffs(self):
-        """
-        Distributes coefficients to adjacent base vectors in a wave-like pattern.
-        option: A string indicating the direction of distribution ('forward', 'backward', 'both').
 
-        Returns:
-        Modified numpy array of coefficients.
-        """
-        org_coeffs = self.coeff_vec_all.copy()
-        #result_coeffs = np.zeros(floretion.coeff_vec_all.size)
-
-        num_base_vecs = org_coeffs.size
-
-        for i in range(num_base_vecs):
-            # Determine indices for forward and backward distribution
-            forward_idx = i + 1 if i < num_base_vecs - 1 else None
-            backward_idx = i - 1 if i > 0 else None
-           # if org_coeffs [i] > 0:
-            #    add_coeffs[forward_idx] += org_coeffs[i] / 2
-
-            #if org_coeffs [i] > 0:
-            #    add_coeffs[forward_idx] += add_coeffs[forward_idx] / 2
-
-            #else:
-            #    add_coeffs[backward_idx] -= add_coeffs[backward_idx] / 2
-
-        #org_coeffs /= 2
-        #modified_coeffs = org_coeffs + add_coeffs
-
-        #return Floretion(modified_coeffs, floretion.base_vec_dec_all, floretion.grid_flo_loaded_data)
 
     @staticmethod
     def normalize_coeffs(floretion, max_abs_value=2.0):
@@ -585,6 +536,17 @@ class Floretion:
 
         # Create a new Floretion instance with normalized coefficients
         return Floretion(normalized_coeff_vec_all, floretion.base_vec_dec_all, floretion.grid_flo_loaded_data)
+
+    @staticmethod
+    def fractional_coeffs(floretion, max_abs_value=2.0):
+        """
+
+        """
+        frac_coeffs = floretion.coeff_vec_all - np.round(floretion.coeff_vec_all, 0)
+
+
+        # Create a new Floretion instance with normalized coefficients
+        return Floretion(frac_coeffs, floretion.base_vec_dec_all, floretion.grid_flo_loaded_data)
 
 
     @staticmethod
@@ -681,97 +643,8 @@ class Floretion:
 
         return cls(coeffs_of_base_vecs=np.array(coeffs), base_vecs=np.array(base_vecs), format_type=format_type)
 
-    @staticmethod
-    def grid_to_flo_oct(x_coord, y_coord, num_iter):
-        x_sum = 0
-        y_sum = 0
-        result = 0
-
-        for i in range(num_iter):
-            base = 8
-            p_const = 2 ** (num_iter - 1 - i)
-
-            if x_coord <= (p_const + x_sum) and y_coord <= (p_const + y_sum):
-                result += 1 * (base ** i)  # Lower-left quadrant
-
-            elif x_coord <= (p_const + x_sum) and y_coord > (p_const + y_sum):
-                x_sum += 0
-                y_sum += p_const
-                result += 2 * pow(base, i)
-
-            elif x_coord > (p_const + x_sum) and y_coord > (p_const + y_sum):
-                x_sum += p_const
-                y_sum += p_const
-                result += 4 * (base ** i)  # upper-right quadrant
-
-            elif x_coord > (p_const + x_sum) and y_coord <= (p_const + y_sum):
-                x_sum += p_const
-                y_sum += 0
-                result += 7 * (base ** i)  # Upper-right quadrant
-
-        return result
 
 
-    def display_as_grid(self, resize_size=(512, 512)):
-        board_size = 2 ** self.flo_order
-        board_image = np.zeros((board_size, board_size), dtype=np.uint8)  # Black 2D array
-
-        # for row in self.df:  # Assuming df is a NumPy array with the coefficients and base_dec
-        #    coefficient, base_dec = row
-        for base_dec, value in self.base_to_nonzero_coeff.items():
-            x_coord, y_coord = self.flo_oct_to_grid(base_dec)  # Get the coordinates using your existing function
-            print(f"x_coord {x_coord}, y_coord {y_coord}")
-            # x_coord = 0
-            # y_coord = 7
-            board_image[board_size - 1 - y_coord, x_coord] = value  # Set the value in the corresponding cell
-
-        board_image = 255 * board_image
-        board_image = cv2.applyColorMap(board_image, cv2.COLORMAP_OCEAN)
-
-        board_image_resized_up = cv2.resize(board_image, resize_size, interpolation=cv2.INTER_LINEAR)
-
-        # Add grid lines
-        grid_size = 512 // board_size
-        for i in range(0, 513, grid_size):
-            cv2.line(board_image_resized_up, (i, 0), (i, 512), (0, 155, 0), 1)  # vertical lines
-            cv2.line(board_image_resized_up, (0, i), (512, i), (0, 155, 0), 1)  # horizontal lines
-
-        cv2.imshow('Floretion Board', board_image_resized_up)
-        cv2.imwrite('floretion_board_with_grid.png', board_image_resized_up)  # Save the image
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
-    def next_step(self, grid):
-        # Create a copy of the grid to avoid conflicts during updating
-        new_grid = grid.copy()
-
-        grid_size_x = len(grid)
-        grid_size_y = len(grid[0])
-
-        # Loop through each cell and apply the Game of Life rules
-        for i in range(grid_size_x):
-            for j in range(grid_size_y):
-                alive_neighbors = sum(
-                    [grid[x % grid_size_x][y % grid_size_y] for x, y in self.neighbors(i, j)]
-                )
-                if grid[i][j] == 1:  # If the cell is alive
-                    if alive_neighbors < 2 or alive_neighbors > 3:
-                        new_grid[i][j] = 0  # Dies
-                else:  # If the cell is dead
-                    if alive_neighbors == 3:
-                        new_grid[i][j] = 1  # Becomes alive
-
-        return new_grid
-
-    def neighbors(self, x, y):
-        # Restituisce le coordinate dei vicini di una cella data
-        return [(x - 1, y - 1), (x - 1, y), (x - 1, y + 1), (x, y - 1), (x, y + 1), (x + 1, y - 1), (x + 1, y),
-                (x + 1, y + 1)]
-
-    def grid_to_coordinates(self, grid):
-        # Converte la griglia in un array di coordinate
-        coords = np.array([[i, j] for i in range(len(grid)) for j in range(len(grid[0])) if grid[i][j] == 1])
-        return coords
 
 
 
@@ -785,7 +658,7 @@ class Floretion:
             else:
                 return -1*self  # Inverse is the negative of the floretion
         else:
-            raise ValueError("Provided floretion is not a base floretion.")
+            raise ValueError("Floretion is not a base floretion.")
 
     def find_center(self):
         """
@@ -807,7 +680,28 @@ class Floretion:
 
         return commuting_base_vectors
 
-    def find_center_base_vectors_only(self):
+
+
+
+
+
+    def centered_flo(self, decomposition_type="both"):
+
+        # initialize to zero
+        result_flo = Floretion.from_string(f'0{"e" * self.flo_order}')
+
+        for base_vec, coeff in self.base_to_nonzero_coeff.items():
+            if coeff > 0:
+                pass
+            # reinitialize
+            this_flo = Floretion(np.array([1]), np.array([base_vec]))
+            center = np.array(list(this_flo.find_center_base_vectors_only(decomposition_type)))
+            result_flo = result_flo + Floretion(coeff*np.ones(center.size), center, format_type="dec")
+
+        return result_flo
+
+
+    def find_center_base_vectors_only(self, decomposition_type = "both"):
         """
         Find all base vectors whose product with this floretion (considered as a base vector)
         has the same sign as the product in the reverse order.
@@ -815,7 +709,7 @@ class Floretion:
         Returns:
             A list of base vectors that commute with this floretion as a base vector.
         """
-        commuting_base_vectors = []
+        commuting_base_vectors = set()
 
         # Assuming 'self' is a base vector, represented by a single nonzero coefficient
         if len(self.base_to_nonzero_coeff) != 1:
@@ -823,60 +717,34 @@ class Floretion:
 
         # Get the base vector and its order
         base_vec_self, _ = next(iter(self.base_to_nonzero_coeff.items()))
+
         flo_order = self.flo_order
 
         for base_vec in self.base_vec_dec_all:
             # Check if the signs of the products are the same
-            if Floretion.mult_flo_sign_only(base_vec_self, base_vec, flo_order) == Floretion.mult_flo_sign_only(
-                    base_vec, base_vec_self, flo_order):
-                commuting_base_vectors.append(base_vec)
+            if decomposition_type == "both":
+                if (Floretion.mult_flo_sign_only(base_vec_self, base_vec, flo_order) ==
+                        Floretion.mult_flo_sign_only(base_vec, base_vec_self, flo_order)):
+                    commuting_base_vectors.add(base_vec)
+            elif decomposition_type == "positive" or decomposition_type == "pos":
+                if (Floretion.mult_flo_sign_only(base_vec_self, base_vec, flo_order) > 0 and
+                        Floretion.mult_flo_sign_only(base_vec, base_vec_self, flo_order) > 0):
+                    commuting_base_vectors.add(base_vec)
+            elif decomposition_type == "negative" or decomposition_type == "neg":
+                if (Floretion.mult_flo_sign_only(base_vec_self, base_vec, flo_order) < 0 and
+                        Floretion.mult_flo_sign_only(base_vec, base_vec_self, flo_order) < 0):
+                    commuting_base_vectors.add(base_vec)
+            elif decomposition_type == "mixed_pos" or decomposition_type == "mixpos":
+                if (Floretion.mult_flo_sign_only(base_vec_self, base_vec, flo_order) > 0 and
+                        Floretion.mult_flo_sign_only(base_vec, base_vec_self, flo_order) < 0):
+                    commuting_base_vectors.add(base_vec)
+            elif decomposition_type == "mixed_neg" or decomposition_type == "mixneg":
+                if (Floretion.mult_flo_sign_only(base_vec_self, base_vec, flo_order) > 0 and
+                    Floretion.mult_flo_sign_only(base_vec, base_vec_self, flo_order) < 0):
+                    commuting_base_vectors.add(base_vec)
+
 
         return commuting_base_vectors
-
-    def conway(self, n):
-        # Create a directory to store the CSV files if it doesn't exist
-        output_dir = "data/conway"
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-
-        # Initialize the grid like you did before
-        board_size = 2 ** self.flo_order
-        grid = np.zeros((board_size, board_size), dtype=int)
-
-        for base_dec, value in self.flomap_base_to_nonzero_coeff.items():
-            coords = self.flo_oct_to_grid(base_dec)
-            x, y = coords
-            grid[x][y] = value
-
-        # Simulate n steps of the game
-        for i in range(n + 1):  # +1 to include the 0th step
-            # Get the live coordinates
-            live_coords = self.grid_to_coordinates(grid)
-
-            # Prepare data as a pandas DataFrame
-            data = []
-            for x, y in live_coords:
-                base_dec = self.grid_to_flo_oct(x, y, self.flo_order)
-                data.append([base_dec, x, y])
-
-            df = pd.DataFrame(data, columns=["floretion", "x_coord", "y_coord"])
-
-            # Save DataFrame to CSV
-            number_str = str(i).zfill(4)  # Making sure it has 4 digits
-
-            csv_file_path = os.path.join(output_dir, f"conway.flo.{number_str}.csv")
-            df.to_csv(csv_file_path, index=False)
-
-            print(f"Conway iteration number {i}: Saved to {csv_file_path}")
-
-            # Update grid for the next iteration
-            grid = self.next_step(grid)
-
-
-def draw_triangle(image, vertex1, vertex2, vertex3, color=(255, 255, 255)):
-    cv2.line(image, tuple(vertex1), tuple(vertex2), color, 1)
-    cv2.line(image, tuple(vertex2), tuple(vertex3), color, 1)
-    cv2.line(image, tuple(vertex3), tuple(vertex1), color, 1)
 
 
 if __name__ == "__main__":
