@@ -24,6 +24,8 @@ import cv2
 import numpy as np
 import os
 import colorsys
+import time
+
 from floretion import Floretion
 
 
@@ -289,6 +291,36 @@ if __name__ == "__main__":
     zero_flo = Floretion.from_string(f'0{"e" * flo_order}')
     unit_flo = Floretion.from_string(f'1{"e" * flo_order}')
 
+    # tests
+    #flo_x = Floretion.from_string('1i+2j+3k+4e')
+    #flo_y = Floretion.from_string('k-j+3')
+    #flo_x = Floretion.from_string('1ii-3ij +2jk - 4ie')
+    #flo_y = Floretion.from_string('6ii-  4ie + kk')
+    #flo_x = Floretion.from_string('1iii-3iji +2jkj - 4iee')
+    #flo_y = Floretion.from_string('6iijk-  4ieek + kkke')
+    #flo_x = Floretion.from_string('1iiik-3ijei +2jkej - 4ieie')
+    #flo_y = Floretion.from_string('6iijek-  4ieeek + kekke')
+    #flo_x = Floretion.from_string('1iiikj-3ijeij +2jkejj - 4jieie')
+    #flo_y = Floretion.from_string('6iijekj-  4jieeek + jkekke')
+    #flo_x = Floretion.from_string('1iiikjk-3ikjeij +2kjkejj - 4kjieie')
+    # -4.0000iiikje -2.0000iikkij +16.0000ikieik -8.0000ikkeji -12.0000jkieie -24.0000jkkejj +kjieik +12.0000kjjeii -4.0000keikje -3.0000kejkjj -18.0000ejeeje -6.0000eekkii
+    # -4.0000iiikje -2.0000iikkij +16.0000ikieik -8.0000ikkeji -12.0000jkieie -24.0000jkkejj +kjieik +12.0000kjjeii -4.0000keikje -3.0000kejkjj -18.0000ejeeje -6.0000eekkii
+    # +4.0000iikje +2.0000ikkij -jijej -3.0000jjkjj -16.0000kieik -12.0000kjjji +8.0000kkeji -24.0000kejik +4.0000eiiki -12.0000ejeii -18.0000ekjii +6.0000eekki
+    # +4.0000iikje +2.0000ikkij -jijej -3.0000jjkjj -16.0000kieik -12.0000kjjji +8.0000kkeji -24.0000kejik +4.0000eiiki -12.0000ejeii -18.0000ekjii +6.0000eekki
+    # -2.0000iekj +3.0000jiki -jjjk -4.0000jkje -12.0000kjji +8.0000kkei -4.0000eiie +24.0000eikk +12.0000ejej +18.0000ekjj -16.0000eeik -6.0000eeke
+    # -2.0000iekj +3.0000jiki -jjjk -4.0000jkje -12.0000kjji +8.0000kkei -4.0000eiie +24.0000eikk +12.0000ejej +18.0000ekjj -16.0000eeik -6.0000eeke
+
+    #flo_y = Floretion.from_string('6iij-  4iee + kkk')
+    # -2.0000iei -3.0000jij -jjj +4.0000jkk +12.0000kje +8.0000kkj +4.0000eii +24.0000eij -12.0000eji -18.0000ekk +6.0000eek -16.0000eee
+    # -2.0000iei -3.0000jij -jjj +4.0000jkk +12.0000kje +8.0000kkj +4.0000eii +24.0000eij -12.0000eji -18.0000ekk +6.0000eek -16.0000eee
+
+    # -2.0000ie +3.0000ji +jj +4.0000jk -12.0000kj +8.0000kk +28.0000ei -12.0000ej -18.0000ek -10.0000ee
+    # -2.0000ie +3.0000ji +jj +4.0000jk -12.0000kj +8.0000kk +28.0000ei -12.0000ej -18.0000ek -10.0000ee
+    # +5.0000i -5.0000j +3.0000k -e
+    # +5.0000i -5.0000j +3.0000k -e
+    #z = flo_x * flo_y
+    #print(z.as_floretion_notation())
+    #exit(-1)
     new_coeffs_sierp = []
     new_coeffs_sierp_i = []
     new_coeffs_sierp_j = []
@@ -348,12 +380,14 @@ if __name__ == "__main__":
     centers_data_neg = Floretion.load_centers(flo_order, decomposition_type="neg")
     grid_flo_loaded_data_all = zero_flo.grid_flo_loaded_data
 
-    filedir = f"./data/triangleize/fisch_time{flo_order}"
+    filename = "hill_time"
+    filedir = f"./data/triangleize/{filename}_{flo_order}"
     if not os.path.exists(filedir):
         os.makedirs(filedir)
 
     flo_index = 0
     flo_to_map = sierp_flo
+    start_time = time.time()  # Start timing
     for flo in centers_data_neg.keys():
 
         coeff_array = np.ones(len(centers_data_pos))
@@ -378,9 +412,21 @@ if __name__ == "__main__":
         floA.plot_floretion()
         flo_index += 1
 
-        filename = filedir + f"/{format(int(flo), 'o')}.png"
-        cv2.imwrite(filename, img)
+        png_filename = filedir + f"/{format(int(flo), 'o')}.png"
+        cv2.imwrite(png_filename, img)
 
+        saved_flo_filename = filedir + f"/{filename}.saved_flos.txt"
+        if flo_index % 256 == 0:
+            print("Saving to file")
+            with open(saved_flo_filename, "a") as myfile:
+                myfile.write(f'{flo}: {flo_to_map.as_floretion_notation()}')
+
+
+
+    end_time = time.time()  # End timing
+
+
+    print("Execution Time:", end_time - start_time, "seconds")
     exit(-1)
     tes_index = 0
     for tes_scalar in np.arange(0, 2, .1):
@@ -403,6 +449,8 @@ if __name__ == "__main__":
         floA = Triangleize(flo_to_map, img, plot_type='triangle')
         floA.plot_floretion()
         filename = filedir + f"/{format(int(flo), 'o')}.tes_{'{:05.0f}'.format(tes_index)}.png"
+
+
         tes_index += 1
         cv2.imwrite(filename, img)
 

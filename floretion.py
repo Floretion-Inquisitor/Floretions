@@ -285,6 +285,38 @@ class Floretion:
 
         return (pre_sign * cyc_sign * ord_sign)
 
+    @staticmethod
+    def mult_flo_base_only(a_base_val, b_base_val, flo_order):
+        """
+        Computes only the sign of the product of two floretion base vectors.
+
+        Parameters:
+            a_base_val: The first base vector.
+            b_base_val: The second base vector.
+            flo_order: The floretion order.
+
+        Returns:
+            An integer representing the sign of the floretion product (-1 or 1).
+        """
+        bitmask = int(2 ** (3 * flo_order) - 1)
+        oct666 = int('6' * flo_order, 8)
+        oct111  = int('1' * flo_order, 8)
+
+        pre_sign = sgn(a_base_val) * sgn(b_base_val)
+        a_base_val = abs(a_base_val)
+        b_base_val = abs(b_base_val)
+
+        # Shift every 3-bits of "a" one to the left
+        a_cyc = ((a_base_val << 1) & oct666) | ((a_base_val >> 2) & oct111)
+
+        cyc_sign = 1 if count_bits((a_cyc & b_base_val) & bitmask) & 0b1 else -1
+        ord_sign = 1 if count_bits(bitmask) & 0b1 else -1
+
+        abs_val = bitmask & (~(a_base_val ^ b_base_val))
+        sign = (pre_sign * cyc_sign * ord_sign)
+
+        return abs_val*sign
+
     # Then declare compute_possible_vecs and other functions
     @staticmethod
     def compute_possible_vecs(x_base_vecs, y_base_vecs, flo_order, base_vecs_all):
@@ -377,11 +409,6 @@ class Floretion:
         Returns:
             A new Floretion instance resulting from the multiplication.
 
-        Examples:
-            f1 = Floretion([1, 2], [3, 4])
-            f2 = Floretion([1, 2], [3, 4])
-            f3 = f1 * f2  # Floretion multiplication
-            f4 = f1 * 2   # Scalar multiplication
         """
         # Handle scalar multiplication
         if isinstance(other, (int, float)):
@@ -403,29 +430,56 @@ class Floretion:
             z_base_vecs = list()
             z_coeffs = list()
 
-            # For each possible base vector 'z'
-            for z in possible_base_vecs:
-                coeff_z = 0.0
+            do_table_import = True
+            if not do_table_import:
+                # For each possible base vector 'z'
+                for z in possible_base_vecs:
+                    coeff_z = 0.0
 
-                # For each base vector 'y' of the other Floretion
-                for base_vec_y, coeff_y in other.base_to_nonzero_coeff.items():
-                    # Compute absolute value product of base vectors
-                    check_if_in_base_vec_x = Floretion.mult_flo_base_absolute_value(z, base_vec_y, self.flo_order)
+                    # For each base vector 'y' of the other Floretion
+                    for base_vec_y, coeff_y in other.base_to_nonzero_coeff.items ():
+                        # Compute absolute value product of base vectors
+                        check_if_in_base_vec_x = Floretion.mult_flo_base_absolute_value(z, base_vec_y, self.flo_order)
 
-                    if check_if_in_base_vec_x in self.base_to_nonzero_coeff.keys():
-                        # Lookup coefficient for base vector x
-                        index_x = self.base_to_grid_index[check_if_in_base_vec_x]
-                        coeff_x = self.coeff_vec_all[index_x]
+                        if check_if_in_base_vec_x in self.base_to_nonzero_coeff.keys():
+                            # Lookup coefficient for base vector x
+                            index_x = self.base_to_grid_index[check_if_in_base_vec_x]
+                            coeff_x = self.coeff_vec_all[index_x]
 
-                        # Compute coefficient for the result base vector z
-                        coeff_z += coeff_x * coeff_y * Floretion.mult_flo_sign_only(check_if_in_base_vec_x,
-                                                                                    base_vec_y,
-                                                                                    self.flo_order)
+                            # Compute coefficient for the result base vector z
+                            coeff_z += coeff_x * coeff_y * Floretion.mult_flo_sign_only(check_if_in_base_vec_x,
+                                                                                        base_vec_y,
+                                                                                        self.flo_order)
 
-                z_coeffs.append(coeff_z)
-                z_base_vecs.append(z)
+                    z_coeffs.append(coeff_z)
+                    z_base_vecs.append(z)
 
-            return Floretion(z_coeffs, z_base_vecs, self.grid_flo_loaded_data)
+                return Floretion(z_coeffs, z_base_vecs, self.grid_flo_loaded_data)
+
+            else:
+
+                filedir = f"./data/npy/order_{self.flo_order}"
+                segment = 0
+                file_name_ind = f'{filedir}/floretion_order_{self.flo_order}_segment_{segment}_indices.fin.npy'
+                file_name_sgn = f'{filedir}/floretion_order_{self.flo_order}_segment_{segment}_signs.fin.npy'
+
+                indices_matrix = np.load(file_name_ind)
+                signs_matrix = np.load(file_name_sgn)
+
+                #print(indices_matrix[0])
+                #print(signs_matrix)
+                # For each possible base vector 'z'
+                for z_index, z_base_vec in enumerate(self.base_vec_dec_all):
+                    #print(f'z_index {z_index} z_base_vec {z_base_vec}')
+                    #print(self.coeff_vec_all[indices_matrix[z_index]])
+                    x_coeffs_reordered = self.coeff_vec_all[indices_matrix[z_index]]*signs_matrix[z_index]
+                    z_coeffs.append(np.dot(x_coeffs_reordered, other.coeff_vec_all))
+
+                return Floretion(z_coeffs, self.base_vec_dec_all, self.grid_flo_loaded_data)
+
+
+
+
 
     def mul_sp(self, other):
         if isinstance(other, (int, float)):
