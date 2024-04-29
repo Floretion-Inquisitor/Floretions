@@ -208,6 +208,12 @@ class Triangleize:
     # ax.text(x, y, label, fontsize=12)
 
     def place_base_vecs(self, base_vector, coeff):
+        """
+        Main algorithm to associate a base vector with the centroid of an equilateral triangle. If base vector is of
+        order n, then this equilateral triangle can be seen as one of 4^n "tiles" inside of a surrounding equilateral triangle.
+        The colors (hue, saturation and brightness) can be changed without altering the actual algorithm.
+        """
+
         x, y = self.height // 2, self.width // 2
         y_offset = int(self.height * 0.1)
         y += y_offset
@@ -249,6 +255,7 @@ class Triangleize:
 
             distance /= 2
             color_sat.append(distance)
+
         # Saturation and Brightness (Value)
         changed_dir_count = np.count_nonzero(np.isnan(color_hue))
         if changed_dir_count > 15:
@@ -266,13 +273,11 @@ class Triangleize:
         max_sat = processed_sat.max()
         processed_sat = processed_sat / max_sat
         processed_hue = np.nansum(processed_hue * processed_sat)
-        # print(f'color hue {np.array(color_hue)}')
-        # print(f'color sat {np.array(color_sat)}')
 
         # Convert HSV to RGB
         rgb = colorsys.hsv_to_rgb(processed_hue, saturation, brightness)
         color_array = (np.array(rgb) * 255).astype(int)
-        # print(color_array)
+
 
         return x, y, 1.8 * distance, color_array
 
@@ -287,40 +292,18 @@ if __name__ == "__main__":
     # exit(-1)
     height, width = 4 * 1024, 4 * 1024
 
-    flo_order = 6
+    flo_order = 5
     zero_flo = Floretion.from_string(f'0{"e" * flo_order}')
     unit_flo = Floretion.from_string(f'1{"e" * flo_order}')
 
     # tests
     #flo_x = Floretion.from_string('1i+2j+3k+4e')
     #flo_y = Floretion.from_string('k-j+3')
-    #flo_x = Floretion.from_string('1ii-3ij +2jk - 4ie')
-    #flo_y = Floretion.from_string('6ii-  4ie + kk')
-    #flo_x = Floretion.from_string('1iii-3iji +2jkj - 4iee')
-    #flo_y = Floretion.from_string('6iijk-  4ieek + kkke')
-    #flo_x = Floretion.from_string('1iiik-3ijei +2jkej - 4ieie')
-    #flo_y = Floretion.from_string('6iijek-  4ieeek + kekke')
-    #flo_x = Floretion.from_string('1iiikj-3ijeij +2jkejj - 4jieie')
-    #flo_y = Floretion.from_string('6iijekj-  4jieeek + jkekke')
-    #flo_x = Floretion.from_string('1iiikjk-3ikjeij +2kjkejj - 4kjieie')
-    # -4.0000iiikje -2.0000iikkij +16.0000ikieik -8.0000ikkeji -12.0000jkieie -24.0000jkkejj +kjieik +12.0000kjjeii -4.0000keikje -3.0000kejkjj -18.0000ejeeje -6.0000eekkii
-    # -4.0000iiikje -2.0000iikkij +16.0000ikieik -8.0000ikkeji -12.0000jkieie -24.0000jkkejj +kjieik +12.0000kjjeii -4.0000keikje -3.0000kejkjj -18.0000ejeeje -6.0000eekkii
-    # +4.0000iikje +2.0000ikkij -jijej -3.0000jjkjj -16.0000kieik -12.0000kjjji +8.0000kkeji -24.0000kejik +4.0000eiiki -12.0000ejeii -18.0000ekjii +6.0000eekki
-    # +4.0000iikje +2.0000ikkij -jijej -3.0000jjkjj -16.0000kieik -12.0000kjjji +8.0000kkeji -24.0000kejik +4.0000eiiki -12.0000ejeii -18.0000ekjii +6.0000eekki
-    # -2.0000iekj +3.0000jiki -jjjk -4.0000jkje -12.0000kjji +8.0000kkei -4.0000eiie +24.0000eikk +12.0000ejej +18.0000ekjj -16.0000eeik -6.0000eeke
-    # -2.0000iekj +3.0000jiki -jjjk -4.0000jkje -12.0000kjji +8.0000kkei -4.0000eiie +24.0000eikk +12.0000ejej +18.0000ekjj -16.0000eeik -6.0000eeke
+    flo_x = Floretion.from_string('1ii-3ij +2jk - 4ie')
+    flo_y = Floretion.from_string('6ii-  4ie + kk')
+    print((flo_x*flo_y).as_floretion_notation())
 
-    #flo_y = Floretion.from_string('6iij-  4iee + kkk')
-    # -2.0000iei -3.0000jij -jjj +4.0000jkk +12.0000kje +8.0000kkj +4.0000eii +24.0000eij -12.0000eji -18.0000ekk +6.0000eek -16.0000eee
-    # -2.0000iei -3.0000jij -jjj +4.0000jkk +12.0000kje +8.0000kkj +4.0000eii +24.0000eij -12.0000eji -18.0000ekk +6.0000eek -16.0000eee
 
-    # -2.0000ie +3.0000ji +jj +4.0000jk -12.0000kj +8.0000kk +28.0000ei -12.0000ej -18.0000ek -10.0000ee
-    # -2.0000ie +3.0000ji +jj +4.0000jk -12.0000kj +8.0000kk +28.0000ei -12.0000ej -18.0000ek -10.0000ee
-    # +5.0000i -5.0000j +3.0000k -e
-    # +5.0000i -5.0000j +3.0000k -e
-    #z = flo_x * flo_y
-    #print(z.as_floretion_notation())
-    #exit(-1)
     new_coeffs_sierp = []
     new_coeffs_sierp_i = []
     new_coeffs_sierp_j = []
@@ -380,7 +363,7 @@ if __name__ == "__main__":
     centers_data_neg = Floretion.load_centers(flo_order, decomposition_type="neg")
     grid_flo_loaded_data_all = zero_flo.grid_flo_loaded_data
 
-    filename = "hill_time"
+    filename = "test_time"
     filedir = f"./data/triangleize/{filename}_{flo_order}"
     if not os.path.exists(filedir):
         os.makedirs(filedir)
@@ -395,8 +378,8 @@ if __name__ == "__main__":
         flo_to_neg = Floretion(coeff_array, np.array(centers_data_neg[flo]))
         img = np.zeros((height, width, 3), np.uint8)
 
-        flo_to_map = flo_to_pos * flo_to_map * flo_to_neg
-
+        #flo_to_map = flo_to_pos * flo_to_map * flo_to_neg
+        flo_to_map = flo_to_neg * flo_to_map * flo_to_neg
         if flo_index % 3 == 0:
             flo_to_map = flo_to_map * sierp_flo_i
         elif flo_index % 3 == 1:
