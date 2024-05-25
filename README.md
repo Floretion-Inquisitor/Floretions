@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This repository serves as a playground for exploring the algebraic structure of Floretions—a unique number system with roots in base-8 digits 1,2,4,7. A formal definition along with a link to current draft paper "Floretions and Actions of D3" is given here [OEIS](https://oeis.org/search?q=a308496).  
+This repository serves as a playground for exploring the algebraic structure of Floretions—a unique number system with roots in base-8 digits 1,2,4,7. [Floretion Calculator](https://www.floretions.com).  
 
 ## Content Overview
 
