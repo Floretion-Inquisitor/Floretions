@@ -1,7 +1,6 @@
-
 # MIT License
 
-# Copyright (c) [2023 [Creighton Dement]
+# Copyright (c) [2024 [Creighton Dement]
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +28,7 @@ import json
 from multiprocessing import Pool, cpu_count
 import floretion_base_vector
 import logging
+import time
 
 logger = logging.getLogger('FloretionLogger')
 
@@ -53,15 +53,16 @@ f_handler.setFormatter(f_format)
 logger.addHandler(c_handler)
 logger.addHandler(f_handler)
 
-
 # Constants
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FLORETION_VERSION = 1.01
 DEFAULT_PROCESS_COUNT = max(2, (3 * cpu_count() // 4) // 2 * 2)
 
+
 def count_bits(n):
     """Count the number of '1's in the binary representation of an integer."""
     return bin(n).count('1')
+
 
 def sgn(x):
     """Return the sign of a number: -1 for negative, 1 for non-negative."""
@@ -107,7 +108,6 @@ class Floretion:
     """
     num_processes = DEFAULT_PROCESS_COUNT
 
-
     def __init__(self, coeffs_of_base_vecs, base_vecs, grid_flo_loaded_data=None, format_type="dec"):
         """
         Initializes a Floretion instance with given coefficients and base vectors, with optional pre-loaded data.
@@ -119,7 +119,8 @@ class Floretion:
         """
         self.format_type = format_type
         temp_base_vec_dec = np.array([int(str(bv), 8) if format_type == "oct" else bv for bv in base_vecs])
-        self.base_to_nonzero_coeff = {bv: coeff for bv, coeff in zip(temp_base_vec_dec, coeffs_of_base_vecs) if np.abs(coeff) > np.finfo(float).eps}
+        self.base_to_nonzero_coeff = {bv: coeff for bv, coeff in zip(temp_base_vec_dec, coeffs_of_base_vecs) if
+                                      np.abs(coeff) > np.finfo(float).eps}
         # define maximum order of floretions for which base vectors are defined in input data
         self.max_order = 10
         self.flo_order = self.find_flo_order(temp_base_vec_dec, self.max_order)
@@ -143,14 +144,14 @@ class Floretion:
 
     def map_coeffs_to_base_vectors(self):
         """Map coefficients to base vectors using the pre-loaded grid data."""
-        self.base_to_grid_index = {base_vec: idx for idx, base_vec in enumerate(self.base_vec_dec_all) if base_vec in self.base_to_nonzero_coeff}
+        self.base_to_grid_index = {base_vec: idx for idx, base_vec in enumerate(self.base_vec_dec_all) if
+                                   base_vec in self.base_to_nonzero_coeff}
         for base_vec, coeff in self.base_to_nonzero_coeff.items():
             idx = self.base_to_grid_index.get(base_vec)
             if idx is not None:
                 self.coeff_vec_all[idx] = coeff
             else:
                 logging.warning(f"Base vector {base_vec} not found in grid.")
-
 
     @classmethod
     def from_preloaded_data(cls, coeffs_of_base_vecs, base_vecs, flo_order, grid_flo_data):
@@ -406,14 +407,17 @@ class Floretion:
         # return result
 
     @staticmethod
-    def load_centers(flo_order, decomposition_type="pos"):
+    def load_centers(flo_order, decomposition_type="pos", storage_type="npy"):
+        # i:\dev\dev\python\floretions\data\centers\order_6\both\centers_order_6_segment_000.npy
+        centers_file_path = os.path.join(BASE_DIR, f'floretions/data/centers/order_{flo_order}/{decomposition_type}/',
+                                         f'centers_order_{flo_order}_segment_000.{storage_type}')
 
-        centers_file_path = os.path.join(BASE_DIR, 'floretions/data/centers',
-                                         f'center_data_order_{flo_order}.{decomposition_type}.json')
-
-        # Load center data
-        with open(centers_file_path, 'r') as file:
-            center_data = json.load(file)
+        if storage_type == "npy":
+            center_data = np.load(centers_file_path, allow_pickle=True)
+        elif storage_type == "json":
+            # Load center data
+            with open(centers_file_path, 'r') as file:
+                center_data = json.load(file)
 
         return center_data
 
@@ -462,8 +466,12 @@ class Floretion:
 
             z_base_vecs = list()
             z_coeffs = list()
-               
-            do_table_import = True
+
+            if self.flo_order > 5:
+                do_table_import = True
+            else:
+                do_table_import = False
+
             if not do_table_import:
                 # For each possible base vector 'z'
                 for z in possible_base_vecs:
@@ -492,9 +500,9 @@ class Floretion:
             else:
 
                 filedir = f"./data/npy/order_{self.flo_order}"
-                segment = 0
-                file_name_ind = f'{filedir}/floretion_order_{self.flo_order}_segment_{segment}_indices.fin.npy'
-                file_name_sgn = f'{filedir}/floretion_order_{self.flo_order}_segment_{segment}_signs.fin.npy'
+                segment = "000"  # segment_string = str(segment).zfill(3)
+                file_name_ind = f'{filedir}/floretion_order_{self.flo_order}_segment_{segment}_indices.npy'
+                file_name_sgn = f'{filedir}/floretion_order_{self.flo_order}_segment_{segment}_signs.npy'
 
                 indices_matrix = np.load(file_name_ind)
                 signs_matrix = np.load(file_name_sgn)
@@ -509,8 +517,6 @@ class Floretion:
                     z_coeffs.append(np.dot(x_coeffs_reordered, other.coeff_vec_all))
 
                 return Floretion(z_coeffs, self.base_vec_dec_all, self.grid_flo_loaded_data)
-
-
 
     def mul_sp(self, other):
         if isinstance(other, (int, float)):
@@ -715,11 +721,97 @@ class Floretion:
     def abs(self):
         return np.sqrt(self.sum_of_squares())
 
+    @staticmethod
+    def decimal_to_octal(decimal):
+        return format(int(decimal), 'o')
+
+    @staticmethod
+    def get_typical_floretions(name, order):
+        print(f"Creating floretion {name} of order {order}.")
+
+        # Initialize the base floretion and unit only once
+        zero_flo = 0 * Floretion.from_string(f'1{"e" * order}')
+        unit_flo = Floretion.from_string(f'1{"e" * order}')
+
+
+        # Create base lists for coefficients
+        new_coeffs_sierp = []
+        new_coeffs_sierp_i = []
+        new_coeffs_sierp_j = []
+        new_coeffs_sierp_k = []
+
+        axis_i = []
+        axis_j = []
+        axis_k = []
+
+        # Calculate coefficients based on the zero floretion's base vectors
+        for base in zero_flo.base_vec_dec_all:
+            base_octal = Floretion.decimal_to_octal(base)
+
+            new_coeffs_sierp.append(0.0 if '7' in base_octal else 1.0)
+            new_coeffs_sierp_i.append(0.0 if '1' in base_octal else 1.0)
+            new_coeffs_sierp_j.append(0.0 if '2' in base_octal else 1.0)
+            new_coeffs_sierp_k.append(0.0 if '4' in base_octal else 1.0)
+
+            axis_i.append(0.0 if '2' in base_octal or '4' in base_octal else 1.0)
+            axis_j.append(0.0 if '4' in base_octal or '1' in base_octal else 1.0)
+            axis_k.append(0.0 if '1' in base_octal or '2' in base_octal else 1.0)
+
+        # Convert lists to NumPy arrays for fast array operations
+        new_coeffs_sierp = new_coeffs_sierp
+        new_coeffs_sierp_i = new_coeffs_sierp_i
+        new_coeffs_sierp_j = new_coeffs_sierp_j
+        new_coeffs_sierp_k = new_coeffs_sierp_k
+
+        coeffs_axis_i = axis_i
+        coeffs_axis_j = axis_j
+        coeffs_axis_k = axis_k
+
+        norm_fac = np.sqrt(1. / (order + 1) ** 3)
+
+        # Define the dictionary for lazy-loaded floretion instances
+        name_to_floretion = {
+            "zero_flo": lambda: zero_flo,
+            "unit_flo": lambda: unit_flo,
+            "uniform_flo": lambda: Floretion(np.ones(zero_flo.base_vec_dec_all.size), zero_flo.base_vec_dec_all, format_type="dec"),
+            "sierp_flo": lambda: Floretion(norm_fac * new_coeffs_sierp, zero_flo.base_vec_dec_all, format_type="dec"),
+            "sierp_flo_i": lambda: Floretion(norm_fac * new_coeffs_sierp_i, zero_flo.base_vec_dec_all,
+                                             format_type="dec"),
+            "sierp_flo_j": lambda: Floretion(norm_fac * new_coeffs_sierp_j, zero_flo.base_vec_dec_all,
+                                             format_type="dec"),
+            "sierp_flo_k": lambda: Floretion(norm_fac * new_coeffs_sierp_k, zero_flo.base_vec_dec_all,
+                                             format_type="dec"),
+            "axis_ijk": lambda: (Floretion(coeffs_axis_i, zero_flo.base_vec_dec_all, format_type="dec") +
+                                 Floretion(coeffs_axis_j, zero_flo.base_vec_dec_all, format_type="dec") +
+                                 Floretion(coeffs_axis_k, zero_flo.base_vec_dec_all, format_type="dec") - 2 * unit_flo),
+            "axis_ij": lambda: (Floretion(coeffs_axis_i, zero_flo.base_vec_dec_all, format_type="dec") +
+                                Floretion(coeffs_axis_j, zero_flo.base_vec_dec_all, format_type="dec") - unit_flo),
+            "axis_jk": lambda: (Floretion(coeffs_axis_j, zero_flo.base_vec_dec_all, format_type="dec") +
+                                Floretion(coeffs_axis_k, zero_flo.base_vec_dec_all, format_type="dec") - unit_flo),
+            "axis_ki": lambda: (Floretion(coeffs_axis_k, zero_flo.base_vec_dec_all, format_type="dec") +
+                                Floretion(coeffs_axis_i, zero_flo.base_vec_dec_all, format_type="dec") - unit_flo)
+        }
+
+        # Lazy initialize the floretion based on the 'name'
+        if name in name_to_floretion:
+            result = name_to_floretion[name]()  # Call the lambda function to initialize the floretion
+        else:
+            result = None  # Or raise an error if the name is unknown
+
+        return result
+
     @classmethod
     def from_string(cls, flo_string, format_type="dec"):
+
+        flo_string = flo_string.replace(" ", "")
+
+        if not all(c in "0123456789ijke.+-()" for c in flo_string):
+            raise ValueError("Invalid character in floretion string. E.g. 3rd order: 3.5iii + jjk - 0.5eee (do not use '*')")
+
+        flo_terms = flo_string.split(")(")
+
         # Error check 1: No invalid characters
-        if not all(c in "0123456789ijke.+ -" for c in flo_string):
-            raise ValueError("Invalid character in floretion string.")
+
 
         # Error check 2: No invalid signs
         if "++" in flo_string or "+-" in flo_string or "-+" in flo_string or "--" in flo_string:
